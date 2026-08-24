@@ -2,9 +2,10 @@
  * Pay Module API — Cloudflare Pages Functions (single catch-all router).
  *
  * Rotas:
- *   POST /api/create-payment   { product, plan?, email }        -> { paymentId, checkoutUrl }
+ *   POST /api/create-payment   { product, plan?, email }        -> { mode, paymentId?, checkoutUrl }
  *   POST /api/webhook/asaas    (header asaas-access-token)      -> valida, dedupe, gera licença assinada
  *   GET  /api/license          ?payment=<id>&email=<email>      -> { found, license }
+ *   GET  /api/license-latest   ?key=<email>&product=<slug>      -> { found, license } (renovações)
  *   GET  /api/health                                            -> { ok: true }
  *
  * Bindings esperados no projeto Pages (dashboard -> Settings -> Variables):
@@ -32,6 +33,10 @@ import {
   checkRateLimit,
   dedupeFirstWin,
   expiryDate,
+  stackedExpiry,
+  checkKey,
+  readLicenseIndex,
+  indexLicense,
   signLicense,
 } from '../../src/core.js';
 
@@ -169,7 +174,104 @@ export async function createPayment(request, env) {
     } catch { /* best-effort */ }
   }
 
-  // 4) Cobrança UNDEFINED (pagador escolhe PIX/cartão/boleto no checkout hospedado).
+  // 4a) Planos RECORRENTES (cycle MONTHLY): cria ASSINATURA no Asaas.
+  //     Cada cobrança gerada é um payment normal -> webhook PAYMENT_* ->
+  //     licença reemitida com validade acumulada. O client recebe
+  //     mode:'subscription' e faz polling por email+produto
+  //     (/api/license-latest), porque o id da primeira cobrança só existe
+  //     depois da geração assíncrona dela pelo Asaas.
+  if (plan.cycle === 'MONTHLY') {
+    const externalReference = JSON.stringify({ p: productKey, pl: planKey, e: email });
+
+    // Idempotência: se já existe assinatura ACTIVE pra este (email, produto,
+    // plano), REAPROVEITA em vez de criar outra (duplo-clique / retry /
+    // primeira cobrança ainda não gerada não podem empilhar assinaturas).
+    let existingSub = null;
+    try {
+      const lr = await fetch(`${asaasBase(env)}/v3/subscriptions?customer=${encodeURIComponent(customerId)}&limit=100`, {
+        headers: asaasHeaders(env.ASAAS_API_TOKEN),
+      });
+      const ld = await lr.json().catch(() => null);
+      const list = ld && Array.isArray(ld.data) ? ld.data : [];
+      existingSub = list.find((s) => {
+        if (!s || s.deleted || (s.status && s.status !== 'ACTIVE')) return false;
+        try {
+          const ref = JSON.parse(s.externalReference || '');
+          return ref && ref.p === productKey && ref.pl === planKey && ref.e === email;
+        } catch { return false; }
+      }) || null;
+    } catch { /* segue pra criar */ }
+
+    let sub = existingSub;
+    if (!sub) {
+      let resp;
+      try {
+        resp = await fetch(`${asaasBase(env)}/v3/subscriptions`, {
+          method: 'POST',
+          headers: asaasHeaders(env.ASAAS_API_TOKEN),
+          body: JSON.stringify({
+            customer: customerId,
+            billingType: 'UNDEFINED', // pagador escolhe PIX/cartão no checkout hospedado
+            value: plan.amount,
+            nextDueDate: todayPlus(1),
+            cycle: 'MONTHLY',
+            description: `${product.name} ${planKey.toUpperCase()} (mensal)`,
+            externalReference,
+            callback: env.APP_RETURN_URL
+              ? { successUrl: env.APP_RETURN_URL, autoRedirect: true }
+              : undefined,
+          }),
+        });
+      } catch {
+        return json({ error: 'gateway_unreachable' }, 502);
+      }
+      sub = await resp.json().catch(() => null);
+      if (!resp.ok || !sub || !sub.id) {
+        console.error('[create-payment] subscriptions erro:', resp.status, (sub && sub.errors && sub.errors[0] && sub.errors[0].code) || '?');
+        return json({ error: 'gateway_error' }, 502);
+      }
+    }
+
+    // Mapeia assinatura <-> email (o webhook de cobranças futuras chega só
+    // com subscription id no payment; este índice resolve o dono).
+    try {
+      await env.PAY_KV.put(`sub:${sub.id}`, JSON.stringify({ e: email, p: productKey, pl: planKey }), { expirationTtl: 3 * 365 * 86400 });
+    } catch { /* best-effort */ }
+
+    // Checkout hospedado = fatura da primeira cobrança. Ela costuma já
+    // existir, mas é criada assincronamente: algumas tentativas curtas; se
+    // nada sair, devolvemos erro e o usuário repete (idempotente — reusa
+    // a mesma assinatura, sem duplicar cobrança).
+    let firstPayment = null;
+    for (let attempt = 0; attempt < 5 && !firstPayment; attempt++) {
+      await new Promise((r) => setTimeout(r, 400));
+      try {
+        const pr = await fetch(`${asaasBase(env)}/v3/subscriptions/${encodeURIComponent(sub.id)}/payments?limit=100`, {
+          headers: asaasHeaders(env.ASAAS_API_TOKEN),
+        });
+        const pd = await pr.json().catch(() => null);
+        const list = pd && Array.isArray(pd.data) ? pd.data : [];
+        firstPayment = list.find((p) => p && p.invoiceUrl) || null;
+      } catch { /* tenta de novo */ }
+    }
+
+    console.log(`[create-payment] ok(assinatura) produto=${productKey} assinatura=${sub.id} email=${maskEmail(email)}`);
+    if (!firstPayment) {
+      console.error('[create-payment] assinatura sem primeira cobrança após retries');
+      return json({ error: 'gateway_pending' }, 502);
+    }
+    return json({
+      mode: 'subscription',
+      subscriptionId: sub.id,
+      paymentId: firstPayment.id,
+      checkoutUrl: firstPayment.invoiceUrl,
+      value: plan.amount,
+      currency: 'BRL',
+    });
+  }
+
+  // 4b) Compra ÚNICA: cobrança avulsa UNDEFINED (pagador escolhe PIX/cartão/
+  //     boleto no checkout hospedado).
   const externalReference = JSON.stringify({ p: productKey, pl: planKey, e: email });
   let resp;
   try {
@@ -259,10 +361,19 @@ export async function webhookAsaas(request, env) {
   }
 
   // 4) Metadados: externalReference gravado no create-payment é a fonte da
-  //    verdade ({p, pl, e}). Fallback: busca a cobrança na API do Asaas.
+  //    verdade ({p, pl, e}). Fallbacks: índice local sub:<subscriptionId>
+  //    (cobranças futuras da assinatura chegam só com subscription id) e,
+  //    por último, busca da cobrança na API do Asaas.
   let meta = null;
   if (typeof payment.externalReference === 'string' && payment.externalReference.startsWith('{')) {
     try { meta = JSON.parse(payment.externalReference); } catch { meta = null; }
+  }
+  if ((!meta || !meta.e) && payment.subscription && /^[A-Za-z0-9_-]{1,64}$/.test(String(payment.subscription))) {
+    try {
+      const subRaw = await env.PAY_KV.get(`sub:${payment.subscription}`);
+      const subMeta = subRaw ? JSON.parse(subRaw) : null;
+      if (subMeta && subMeta.e) meta = subMeta;
+    } catch { /* segue pros outros fallbacks */ }
   }
   if (!meta || !meta.e) {
     try {
@@ -286,13 +397,21 @@ export async function webhookAsaas(request, env) {
     return json({ received: true, skipped: 'no_metadata' }, 200);
   }
 
-  // 5) Licença determinística assinada com HMAC-SHA256 (LICENSE_SECRET).
+  // 5) Licença assinada com HMAC-SHA256 (LICENSE_SECRET). Em renovações
+  //    (assinaturas mensais), a validade ACUMULA sobre a anterior ainda
+  //    válida do MESMO produto+plano (dias pagos não usados não se perdem).
+  //    O dedupe acima garante 1 processamento por cobrança -> sem extensão dupla.
   const plan = PRODUCTS[productKey].plans[planKey];
+  let prevExp = null;
+  const prevPointer = await readLicenseIndex(rawKv(env), email);
+  if (prevPointer && prevPointer.product === productKey && prevPointer.plan === planKey && prevPointer.exp) {
+    prevExp = prevPointer.exp;
+  }
   const license = {
     email,
     product: productKey,
     plan: planKey,
-    exp: expiryDate(plan.days),
+    exp: stackedExpiry(prevExp, plan.days),
   };
   const signed = await signLicense(license, env.LICENSE_SECRET || env.WEBHOOK_SECRET);
 
@@ -308,6 +427,16 @@ export async function webhookAsaas(request, env) {
     console.error('[webhook] falha ao salvar licença no KV');
     return json({ error: 'kv_write_failed' }, 500);
   }
+
+  // 6) Índice "licença mais recente deste email" — habilita o boot do app a
+  //    recuperar renovações sem depender do id da cobrança. Best-effort:
+  //    falhou => índice fica na anterior e /api/license segue funcionando.
+  await indexLicense(rawKv(env), email, {
+    paymentId,
+    product: productKey,
+    plan: planKey,
+    exp: license.exp,
+  });
 
   console.log(`[webhook] licença emitida pagamento=${paymentId} produto=${productKey} email=${maskEmail(email)}`);
   return json({ received: true });
@@ -352,6 +481,54 @@ export async function getLicense(request, env) {
 }
 
 /* ------------------------------------------------------------------ *
+ * GET /api/license-latest                                             *
+ * ------------------------------------------------------------------ */
+
+/**
+ * "Minha licença" por EMAIL (não por cobrança). Caso de uso: renovação de
+ * assinatura mensal — o app do usuário busca no boot a licença mais recente
+ * do email dele sem precisar saber ids de cobrança.
+ *
+ * Auth leve: key = o PRÓPRIO email da licença. Sem ela, resposta é sempre
+ * { found:false } — não revela existência, não enumera emails. O par
+ * payment+email (prova criptográfica de posse da compra) continua no
+ * /api/license, que é quem emite a key na primeira entrega.
+ */
+export async function getLicenseLatest(request, env) {
+  if (!env.PAY_KV) return json({ error: 'server_misconfigured' }, 500);
+
+  const url = new URL(request.url);
+  const email = checkKey(url.searchParams.get('key') || url.searchParams.get('email') || '');
+  const productKey = String(url.searchParams.get('product') || '').toLowerCase();
+
+  if (!email) return json({ error: 'invalid_key' }, 400);
+  if (!PRODUCTS[productKey]) return json({ error: 'unknown_product' }, 400);
+
+  const pointer = await readLicenseIndex(rawKv(env), email);
+  if (!pointer || pointer.product !== productKey || !pointer.paymentId) {
+    return json({ found: false });
+  }
+
+  let record = null;
+  try {
+    record = await env.PAY_KV.get(`lic:${pointer.paymentId}`, { type: 'json' });
+  } catch { record = null; }
+  if (!record) return json({ found: false });
+
+  // A licença gravada precisa bater com o ponteiro (defesa em profundidade
+  // contra índice corrompido apontando pra licença de outro produto/email).
+  if (record.email !== email || record.product !== productKey) {
+    console.log('[license-latest] ponteiro e registro divergem');
+    return json({ found: false });
+  }
+
+  return json({
+    found: true,
+    license: { email: record.email, product: record.product, plan: record.plan, exp: record.exp, sig: record.sig },
+  });
+}
+
+/* ------------------------------------------------------------------ *
  * Router Pages Functions                                              *
  * ------------------------------------------------------------------ */
 
@@ -376,6 +553,9 @@ export async function onRequest(context) {
     }
     if (route.length === 1 && route[0] === 'license' && method === 'GET') {
       return await getLicense(request, env);
+    }
+    if (route.length === 1 && route[0] === 'license-latest' && method === 'GET') {
+      return await getLicenseLatest(request, env);
     }
     return json({ error: 'not_found' }, 404);
   } catch (err) {

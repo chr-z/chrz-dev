@@ -320,6 +320,66 @@ function expiryDate(days, now = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Validade COM acúmulo pra assinaturas: cada pagamento confirmado estende
+ * a licença a partir da validade anterior AINDA VÁLIDA (dias não usados
+ * não se perdem). Se a licença anterior já venceu (ou não existe), conta
+ * de hoje. Datas malformadas são ignoradas com segurança.
+ */
+function stackedExpiry(prevExpIso, days, now = new Date()) {
+  let base = now;
+  if (typeof prevExpIso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(prevExpIso)) {
+    const d = new Date(`${prevExpIso}T12:00:00Z`); // meio-dia evita borda de fuso
+    if (!Number.isNaN(d.getTime()) && d.getTime() > now.getTime()) base = d;
+  }
+  return expiryDate(days, base);
+}
+
+/**
+ * Chave de acesso ao índice de licenças por email ("minha licença").
+ * O email É a prova de posse aqui: quem pagou recebe a chave junto com a
+ * licença; sem ela, /api/license-latest só responde found:false uniforme.
+ */
+function licenseIndexKey(email) {
+  return `licidx:${String(email || '').toLowerCase()}`;
+}
+
+/**
+ * Valida a key do endpoint /api/license-latest.
+ * É um email normalizado — nada mais. Retorna o email ou null.
+ * (Nunca aceita payment id: o par payment+email fica no /api/license.)
+ */
+function checkKey(key) {
+  return normalizeEmail(typeof key === 'string' ? key.trim() : '');
+}
+
+/**
+ * Lê o ponteiro "licença mais recente deste email" do KV.
+ * Retorna { paymentId, product, plan, exp } | null.
+ */
+async function readLicenseIndex(kv, email) {
+  try {
+    const raw = await kv.get(licenseIndexKey(email));
+    const obj = raw ? JSON.parse(raw) : null;
+    if (obj && typeof obj === 'object' && obj.paymentId) return obj;
+  } catch { /* corrompido/KV down -> trata como ausente */ }
+  return null;
+}
+
+/**
+ * Publica o ponteiro após emitir uma licença (chamar SÓ depois de gravar
+ * lic:<paymentId> com sucesso — best-effort, falha não derruba o webhook).
+ * TTL acompanha LICENSE_KV_TTL_S.
+ */
+async function indexLicense(kv, email, pointer) {
+  try {
+    await kv.put(licenseIndexKey(email), JSON.stringify(pointer), LICENSE_KV_TTL_S);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export {
   RATE_WINDOW_MS,
   RATE_MAX,
@@ -342,5 +402,10 @@ export {
   checkRateLimit,
   dedupeFirstWin,
   expiryDate,
+  stackedExpiry,
+  licenseIndexKey,
+  checkKey,
+  readLicenseIndex,
+  indexLicense,
   rateKeyFor,
 };

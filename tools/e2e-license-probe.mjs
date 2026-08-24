@@ -159,6 +159,21 @@ async function main() {
   const tampered = (sig[0] === '0' ? '1' : '0') + sig.slice(1);
   check('sig adulterada -> HMAC divergente', createHmac('sha256', LICENSE_SECRET).update(payload, 'utf8').digest('hex') !== tampered);
 
+  // 8) license-latest: índice por email aponta pra esta licença (caminho de
+  //    renovação de assinaturas). Produto errado e email errado -> found:false.
+  const latest = await withRetries(async () => {
+    const r = await fetch(`${BASE}/api/license-latest?key=${encodeURIComponent(EMAIL)}&product=propostly`);
+    const j = await r.json().catch(() => null);
+    return { ok: !!(j && j.found === true && j.license && j.license.sig === sig), body: JSON.stringify(j) };
+  });
+  check('license-latest (key=email, product) -> mesma licença', latest.ok, `body=${latest.body.slice(0, 120)}`);
+
+  const latestWrong = await fetch(`${BASE}/api/license-latest?key=${encodeURIComponent(EMAIL)}&product=tably`);
+  check('license-latest produto divergente -> {found:false}', (await latestWrong.json().catch(() => null))?.found === false);
+
+  const latestNone = await fetch(`${BASE}/api/license-latest?key=nobody-${randomUUID().slice(0, 6)}%40example.com&product=propostly`);
+  check('license-latest email desconhecido -> {found:false} uniforme', (await latestNone.json().catch(() => null))?.found === false);
+
   finish();
 }
 

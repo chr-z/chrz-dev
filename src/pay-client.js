@@ -1,9 +1,14 @@
 /**
- * pay.js v2 — client do Pay Module (vanilla, zero dependências).
+ * pay.js v3 — client do Pay Module (vanilla, zero dependências).
  *
  * Fluxo: botão Pro -> email -> POST /api/create-payment -> redirect checkout
  * Asaas -> volta pro app -> polling /api/license (até 60s) -> licença salva
  * em localStorage -> desbloqueia [data-pro] / esconde [data-watermark].
+ *
+ * v3 (assinaturas): planos mensais viram ASSINATURA Asaas (cycle MONTHLY) —
+ * cada cobrança paga re-emite a licença com validade acumulada. O boot busca
+ * /api/license-latest por email+produto e recupera renovações feitas em
+ * outro dispositivo; PayModule.renew() força a checagem sob demanda.
  *
  * Uso:
  *   <script src="js/pay.js"></script>
@@ -223,12 +228,13 @@
         return false;
       }
       setPending({
-        paymentId: res.data.paymentId,
+        paymentId: res.data.paymentId || null,
         email: clean,
         startedAt: Date.now(),
         checkoutUrl: res.data.checkoutUrl,
+        mode: res.data.mode === 'subscription' ? 'subscription' : 'single',
       });
-      setEntitlement({ paymentId: res.data.paymentId, email: clean });
+      setEntitlement({ paymentId: res.data.paymentId || null, email: clean });
       window.location.href = res.data.checkoutUrl; // checkout hospedado do Asaas
       return true;
     }).catch(function () {
@@ -252,6 +258,16 @@
     return fetch(url).then(function (r) { return r.ok ? r.json() : { found: false }; });
   }
 
+  /**
+   * Licença mais recente do EMAIL (assinaturas mensais): cada renovação gera
+   * um NOVO payment id que esta máquina nunca viu — a busca é por email+produto.
+   */
+  function fetchLatestOnce(email) {
+    var url = CFG.apiBase + '/api/license-latest?key=' + encodeURIComponent(email) +
+      '&product=' + encodeURIComponent(CFG.product || '');
+    return fetch(url).then(function (r) { return r.ok ? r.json() : { found: false }; });
+  }
+
   function acceptLicense(lic, onDone) {
     saveLicense(lic);
     clearPending();
@@ -268,7 +284,20 @@
       // usuário pode ter concluído num outro load: checa pendência atual
       var p = getPending();
       if (!p) return onDone(false);
-      fetchLicenseOnce(p.paymentId, p.email).then(function (out) {
+      var byPayment = p.paymentId
+        ? fetchLicenseOnce(p.paymentId, p.email)
+        : Promise.resolve({ found: false });
+      byPayment.then(function (out) {
+        // Assinatura: se a cobrança ainda não resolve por id (geração é
+        // assíncrona), a renovação pode já aparecer como licença mais
+        // recente do email.
+        if (p.mode === 'subscription' && !(out.found && out.license)) {
+          return fetchLatestOnce(p.email).then(function (latest) {
+            return (latest.found && latest.license) ? latest : out;
+          });
+        }
+        return out;
+      }).then(function (out) {
         if (out.found && out.license && structurallyValid(out.license)) {
           if (CFG.verifyKey) {
             hmacVerify(canonicalPayload(out.license), out.license.sig).then(function (ok) {
@@ -329,17 +358,79 @@
     var lic = getLicense();
     if (!lic) return Promise.resolve(false);
     return verifyLocal(lic).then(function (ok) {
-      if (ok) {
-        if (CFG.verifyKey) {
-          applyState(true, lic);
-          clearPending();
-          return true;
-        }
+      if (!ok) { clearLicense(); return false; }
+      if (CFG.verifyKey) {
+        applyState(true, lic);
+        clearPending();
+        return true;
+      }
+      var ent = getEntitlement();
+      if (ent && ent.paymentId) {
         // sem verifyKey: confirma online (com fallback offline p/ cache)
         return revalidateOnline(lic);
       }
-      clearLicense();
-      return false;
+      // Entitlement ausente (localStorage limpo pela metade / migração):
+      // tenta recuperar por email ANTES de desligar o unlock. Erro de rede
+      // mantém o cache E o unlock (offline-first); found:false trava a UI
+      // nesta sessão mas NÃO apaga o cache (mesma leniência do caminho
+      // payment+email no v2 — retry amanhã custa nada).
+      return renewByEmail(lic.email).then(function (outcome) {
+        if (outcome === 'accepted') return true;
+        if (outcome === 'error') { applyState(true, lic); return true; }
+        return false; // 'notfound': sem prova online nesta sessão
+      });
+    });
+  }
+
+  /**
+   * Resultado da busca por email: 'accepted' (licença mais nova aplicada),
+   * 'notfound' (servidor acessível e nada mais novo) ou 'error' (rede caiu —
+   * NÃO é prova de ausência).
+   */
+  function renewByEmail(email) {
+    var clean = String(email || '').trim();
+    if (!clean || !CFG.product) return Promise.resolve('notfound');
+    var current = getLicense();
+    return fetchLatestOnce(clean).then(function (out) {
+      if (!(out.found && out.license)) return 'notfound';
+      var fresh = out.license;
+      if (!structurallyValid(fresh)) return 'notfound';
+      // só sobrescreve quando é de fato uma RENOVAÇÃO (exp mais recente)
+      if (current && String(current.exp || '') >= String(fresh.exp || '') && current.sig === fresh.sig) {
+        return 'notfound';
+      }
+      if (CFG.verifyKey) {
+        return hmacVerify(canonicalPayload(fresh), fresh.sig).then(function (ok) {
+          if (!ok) return 'notfound';
+          acceptLicense(fresh, function () {});
+          return 'accepted';
+        });
+      }
+      // sem verifyKey: HTTPS da nossa API é autoritativo (mesma regra do polling)
+      acceptLicense(fresh, function () {});
+      return 'accepted';
+    }).catch(function () {
+      return 'error';
+    });
+  }
+
+  /**
+   * Renovação/recuperação por EMAIL (assinaturas): busca a licença mais
+   * recente deste email+produto. Cobre dois casos:
+   *  - automático no boot com o email já conhecido da máquina (renovou em
+   *    outro dispositivo e volta neste);
+   *  - explícito via PayModule.renew(email) — máquina NOVA, onde nenhum
+   *    estado local existe (fluxo "já paguei: recuperar licença").
+   */
+  function renewFromLatest(explicitEmail) {
+    var ent = getEntitlement();
+    var lic = getLicense();
+    var email = explicitEmail || (ent && ent.email) || (lic && lic.email);
+    return renewByEmail(email).then(function (outcome) {
+      if (outcome === 'accepted') return true;
+      return resumeFromStorage();
+    }).catch(function () {
+      return resumeFromStorage(); // rede caiu -> comportamento offline normal
     });
   }
 
@@ -355,9 +446,17 @@
 
   function init() {
     bindButtons();
+    var pending = getPending();
+    if (pending && !getLicense()) {
+      // pós-checkout: polling pela licença desta cobrança
+      pollUntilLicensed(function () {});
+      return;
+    }
     resumeFromStorage().then(function (unlocked) {
       if (!unlocked && getPending()) pollUntilLicensed(function () {});
     });
+    // assinaturas: busca renovação mais recente do email em paralelo
+    renewFromLatest().then(function () {});
   }
 
   if (document.readyState === 'loading') {
@@ -370,7 +469,11 @@
   window.PayModule = {
     init: init,
     buy: startCheckout,
-    state: function () { return { product: CFG.product, licensed: !!getLicense() }; },
+    renew: function (email) { return renewFromLatest(email); },
+    state: function () {
+      var lic = getLicense();
+      return { product: CFG.product, licensed: !!lic, exp: lic ? lic.exp : null };
+    },
     signOut: function () { clearLicense(); clearPending(); applyState(false, null); },
   };
 })();
