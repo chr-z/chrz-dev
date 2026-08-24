@@ -1,0 +1,39 @@
+name: E2E Pay API
+
+# Roda a cadeia completa de licenças CONTRA A PRODUÇÃO depois de cada deploy,
+# além de dispatch manual e checagem semanal (drift de config/secret/KV).
+# O probe valida: webhook autenticado (constant-time), anti-replay em KV real,
+# emissão de licença assinada HMAC-SHA256 e verificação INDEPENDENTE da
+# assinatura com node:crypto. Segredos vêm de repo secrets — nunca impressos.
+
+on:
+  workflow_run:
+    workflows: ["Deploy to Cloudflare Pages"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "30 10 * * 1" # segundas 10:30 UTC (07:30 BRT)
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    # Em dispatch/schedule roda sempre; em workflow_run só se o deploy passou.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    name: License chain vs production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Probe license chain (webhook -> licença -> HMAC)
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
+        run: node tools/e2e-license-probe.mjs https://chrz-dev.pages.dev
