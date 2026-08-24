@@ -1,0 +1,29 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Publish (wrangler pages deploy)
+    runs-on: ubuntu-latest
+    # Skips cleanly when the owner hasn't set the secrets yet (see DEPLOY.md).
+    if: ${{ vars.CLOUDFLARE_ENABLED == 'true' }}
+    environment:
+      name: production
+      url: https://chr-z.dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy . --project-name=chrz-dev --branch=main --commit-dirty=true

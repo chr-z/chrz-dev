@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio — Christian Eliel</title>
+  <meta name="description" content="14 production web applications designed, built and deployed by Christian Eliel — PWA, offline-first, i18n EN/PT-BR, tested and CI-deployed. Plus the Solaris A/V Engine case study.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://chr-z.dev/portfolio.html">
+  <meta property="og:title" content="Portfolio — Christian Eliel">
+  <meta property="og:description" content="14 live production apps + Solaris A/V Engine. Every one: PWA, i18n, tests, CI/CD.">
+  <meta property="og:site_name" content="chr-z.dev">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Portfolio — Christian Eliel">
+  <meta name="twitter:description" content="14 live production apps + Solaris A/V Engine.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b0b12">
+  <link rel="canonical" href="https://chr-z.dev/portfolio.html">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237C3AED'/%3E%3Cstop offset='1' stop-color='%23F97316'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230b0b12'/%3E%3Ctext x='32' y='43' font-family='system-ui,sans-serif' font-size='30' font-weight='700' fill='url(%23g)' text-anchor='middle'%3Ecz%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+  <header class="site-header">
+    <nav class="nav container" aria-label="Main navigation">
+      <a class="brand" href="index.html">christian<span class="grad-text">.dev</span></a>
+      <div class="nav-right">
+        <div class="nav-links">
+          <a href="index.html" data-nav="home" data-i18n="nav.home">Home</a>
+          <a href="portfolio.html" data-nav="portfolio" data-i18n="nav.portfolio">Portfolio</a>
+          <a href="solaris.html" data-nav="solaris" data-i18n="nav.solaris">Solaris</a>
+          <a href="contact.html" data-nav="contact" data-i18n="nav.contact">Contact</a>
+        </div>
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button type="button" class="lang-btn" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" class="lang-btn" data-lang="pt" aria-pressed="false">PT</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="page-head container">
+      <p class="kicker" data-i18n="pf.kicker">Portfolio</p>
+      <h1 class="hero-title" data-i18n="pf.title">Shipped, live &amp; maintained</h1>
+      <p class="hero-sub" data-i18n="pf.sub">
+        Every app below was designed, built, tested and deployed end-to-end by one engineer.
+        Shared DNA: installable PWA, offline-first, English + Portuguese, automated tests,
+        green CI on every push, MIT licensed.
+      </p>
+    </section>
+
+    <section class="section container">
+      <h2 class="section-title" data-i18n="pf.group.saas">Micro-SaaS suite</h2>
+      <div class="grid grid-3">
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/menupulse/" rel="noopener">MenuPulse</a></h3>
+          <p>QR digital menu that sells more.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/linkforge/" rel="noopener">LinkForge</a></h3>
+          <p>Seller bio-link with catalog &amp; WhatsApp CTA.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/tably/" rel="noopener">Tably</a></h3>
+          <p>Offline sales ledger for market stalls &amp; salons.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/resumeforge/" rel="noopener">ResumeForge</a></h3>
+          <p>ATS-friendly resume builder.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/debtfree/" rel="noopener">DebtFree</a></h3>
+          <p>Snowball debt payoff planner.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/contractkit/" rel="noopener">ContractKit</a></h3>
+          <p>Freelancer contracts, invoices &amp; receipts.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/propostaja/" rel="noopener">Propostly</a></h3>
+          <p>Proposals that close, with client links.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/pricecraft/" rel="noopener">PriceCraft</a></h3>
+          <p>Cost-plus &amp; value-based pricing calculator.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/rafflemint/" rel="noopener">RaffleMint</a></h3>
+          <p>Transparent, verifiable giveaways.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/sheetbound/" rel="noopener">SheetBound</a></h3>
+          <p>Printable TTRPG character sheets.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/scopekit/" rel="noopener">ScopeKit</a></h3>
+          <p>Plan features &amp; scope for micro-SaaS.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/profiforge/" rel="noopener">ProfiForge</a></h3>
+          <p>Invoices &amp; time billing for freelancers.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/chronobill/" rel="noopener">ChronoBill</a></h3>
+          <p>Time tracker &amp; hourly billing.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+        <article class="card">
+          <h3><a href="https://chr-z.github.io/sharetab/" rel="noopener">ShareTab</a></h3>
+          <p>Fair bill splitting with minimal transfers.</p>
+          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+        </article>
+      </div>
+      <p class="note" data-i18n="pf.note">
+        All products run on free-tier infrastructure (GitHub Pages) — proof of the cost
+        discipline I bring to client projects.
+      </p>
+    </section>
+
+    <section class="section container">
+      <h2 class="section-title" data-i18n="pf.group.flagship">Flagship</h2>
+      <div class="grid">
+        <article class="card card-wide card-accent">
+          <h3><a href="https://solaris-av-engine.vercel.app/" rel="noopener">Solaris A/V Engine</a></h3>
+          <p data-i18n="pf.solaris.desc">Automated audio-visual QC platform. v2 rebuild: ≈6.5× throughput, offline PWA, exportable QC reports, local-first Pro licensing, on-premise desktop option.</p>
+          <ul class="tags"><li>React</li><li>TypeScript</li><li>Vitest</li><li>Licensing</li></ul>
+          <a class="link-arrow" href="solaris.html" data-i18n="pf.solaris.link">Read the case study →</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section container">
+      <div class="cta-box">
+        <h2 class="section-title" data-i18n="cta.title">Need someone who ships?</h2>
+        <p data-i18n="cta.sub">Freelance projects, contracts and full-time roles. Fast replies, working software, no drama.</p>
+        <a class="btn btn-primary" href="contact.html" data-i18n="cta.button">Start a conversation</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p><span class="brand-small">christian<span class="grad-text">.dev</span></span> — <span data-i18n="footer.tag">built by hand, zero trackers, zero budget.</span></p>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="index.html" data-i18n="nav.home">Home</a>
+        <a href="portfolio.html" data-i18n="nav.portfolio">Portfolio</a>
+        <a href="solaris.html" data-i18n="nav.solaris">Solaris</a>
+        <a href="contact.html" data-i18n="nav.contact">Contact</a>
+      </nav>
+      <p class="footer-copy">© <span id="year">2026</span> Christian Eliel. <span data-i18n="footer.rights">All rights reserved.</span></p>
+    </div>
+  </footer>
+
+  <script src="js/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate site (HTML structure, i18n parity, links, secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: HTML sanity checks
+        shell: python
+        run: |
+          import re, sys, pathlib
+          root = pathlib.Path(".")
+          pages = sorted(root.glob("*.html"))
+          assert pages, "no HTML pages found"
+          errors = []
+
+          required_pages = {"index.html", "portfolio.html", "solaris.html", "contact.html"}
+          found_pages = {p.name for p in pages}
+          missing = required_pages - found_pages
+          if missing:
+              errors.append(f"missing pages: {missing}")
+
+          for page in pages:
+              html = page.read_text(encoding="utf-8")
+              if not html.startswith("<!DOCTYPE html>"):
+                  errors.append(f"{page.name}: doctype missing")
+              if '<html lang="' not in html:
+                  errors.append(f"{page.name}: lang attribute missing")
+              for meta in ['charset="UTF-8"', 'name="viewport"', 'og:title', 'og:description']:
+                  if meta not in html:
+                      errors.append(f"{page.name}: missing {meta}")
+              refs = re.findall(r'(?:href|src)="([^"]+)"', html)
+              for ref in refs:
+                  if ref.startswith(("http://", "https://", "mailto:", "#", "data:")):
+                      continue
+                  path = ref.split("#")[0].split("?")[0]
+                  if path and not (root / path).exists():
+                      errors.append(f"{page.name}: broken local ref {ref}")
+              # internal page links must exist too (href without scheme)
+              for href in re.findall(r'href="([a-zA-Z0-9._-]+\.html)"', html):
+                  if not (root / href).exists():
+                      errors.append(f"{page.name}: broken internal link {href}")
+
+          # sitemap URLs must match real pages
+          sm = (root / "sitemap.xml").read_text(encoding="utf-8")
+          for loc in re.findall(r"<loc>([^<]+)</loc>", sm):
+              tail = loc.replace("https://chr-z.dev/", "").strip()
+              fname = tail or "index.html"
+              if fname != "index.html":
+                  fname = tail.split("/")[-1]
+              if fname not in found_pages and fname != "index.html":
+                  errors.append(f"sitemap: unknown page {loc}")
+              elif fname == "index.html" and loc != "https://chr-z.dev/":
+                  errors.append(f"sitemap: unexpected index entry {loc}")
+          if "https://chr-z.dev/" not in sm:
+              errors.append("sitemap: index URL missing")
+
+          if errors:
+              print("\n".join(f"FAIL: {e}" for e in errors))
+              sys.exit(1)
+          print(f"OK: {len(pages)} pages validated, all local links resolve")
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: i18n key parity (EN == PT-BR)
+        shell: node {0}
+        run: |
+          const fs = require('fs');
+          const src = fs.readFileSync('js/main.js', 'utf8');
+          const m = src.match(/var I18N = (\{[\s\S]*?\n  \});/);
+          if (!m) { console.error('FAIL: I18N dictionary not found'); process.exit(1); }
+          const dict = eval('(' + m[1] + ')');
+          const en = Object.keys(dict.en), pt = Object.keys(dict.pt);
+          const errs = [];
+          const onlyEn = en.filter(k => !pt.includes(k));
+          const onlyPt = pt.filter(k => !en.includes(k));
+          if (onlyEn.length) errs.push('keys only in EN: ' + onlyEn.join(', '));
+          if (onlyPt.length) errs.push('keys only in PT: ' + onlyPt.join(', '));
+          const empty = [...new Set([...en, ...pt])]
+            .filter(k => !String((dict.en[k] ?? '') + (dict.pt[k] ?? '')).trim());
+          if (empty.length) errs.push('empty translations: ' + empty.join(', '));
+          const used = new Set();
+          for (const f of fs.readdirSync('.').filter(f => f.endsWith('.html'))) {
+            const html = fs.readFileSync(f, 'utf8');
+            for (const mm of html.matchAll(/data-i18n="([^"]+)"/g)) used.add(mm[1]);
+          }
+          const missing = [...used].filter(k => !(k in dict.en && k in dict.pt));
+          if (missing.length) errs.push('data-i18n keys with no translation: ' + missing.join(', '));
+          if (errs.length) { console.error(errs.map(e => 'FAIL: ' + e).join('\n')); process.exit(1); }
+          console.log(`OK: i18n parity — ${en.length} keys EN/PT-BR, ${used.size} keys in use`);
+
+      - name: Security scan (secrets & trackers must not exist)
+        shell: python
+        run: |
+          import re, sys, pathlib
+          skip = {".git"}
+          patterns = {
+              "private key": r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+              "aws key": r"AKIA[0-9A-Z]{16}",
+              "github token": r"gh[pousr]_[A-Za-z0-9]{20,}",
+              "cloudflare token": r"\bcfat_[A-Za-z0-9]{10,}\b",
+              "slack token": r"xox[baprs]-[A-Za-z0-9-]{10,}",
+              "google api key": r"AIza[0-9A-Za-z_-]{30,}",
+              "jwt": r"eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.",
+          }
+          trackers = ("googletagmanager.com", "google-analytics.com", "plausible.io",
+                      "hotjar.com", "facebook.net", "clarity.ms")
+          errs = []
+          for f in pathlib.Path(".").rglob("*"):
+              if any(part in skip for part in f.parts) or not f.is_file():
+                  continue
+              try:
+                  text = f.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, PermissionError):
+                  continue
+              rel = str(f)
+              for name, pat in patterns.items():
+                  if re.search(pat, text):
+                      errs.append(f"{rel}: possible {name}")
+              low = text.lower()
+              for t in trackers:
+                  if t in low:
+                      errs.append(f"{rel}: tracker reference {t}")
+          if errs:
+              print("\n".join(f"FAIL: {e}" for e in errs)); sys.exit(1)
+          print("OK: no secrets or trackers detected")
+
+      - name: JS syntax check
+        run: node --check js/main.js

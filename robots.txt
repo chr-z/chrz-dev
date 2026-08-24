@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://chr-z.dev/sitemap.xml
