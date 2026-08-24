@@ -25,30 +25,32 @@ i18n EN/PT-BR key parity, secret-scan and JS syntax check.
 
 ## Deploy (Cloudflare Pages)
 
-The project is published to Cloudflare Pages (`chrz-dev.chrz-dev.pages.dev`
-style subdomain) with the custom domain **https://chr-z.dev** attached.
+**Status: pipeline ACTIVE.** Every push to `main` publishes automatically to
+Cloudflare Pages via `.github/workflows/deploy.yml` → live at
+**https://chrz-dev.pages.dev** (secrets `CLOUDFLARE_API_TOKEN` +
+`CLOUDFLARE_ACCOUNT_ID` and repo variable `CLOUDFLARE_ENABLED=true` are
+already configured).
 
-### Option A — GitHub Actions (automatic)
+### Remaining manual step: point chr-z.dev at the project
 
-Requires two repository secrets (Settings → Secrets and variables → Actions):
+Custom domains `chr-z.dev` and `www.chr-z.dev` are attached to the Pages
+project but stuck in `pending`: the apex DNS record still points to a
+Hostinger parking IP (`84.32.84.32`). The automation token has Pages Edit
+but not DNS Edit, so this one-time fix needs the dashboard:
 
-- `CLOUDFLARE_API_TOKEN` — API token with **Cloudflare Pages Edit** permission
-  (create at dash.cloudflare.com/profile/api-tokens).
-- `CLOUDFLARE_ACCOUNT_ID` — visible on any account page in the dashboard.
+**Easiest:** dash.cloudflare.com → Workers & Pages → `chrz-dev` →
+Custom domains → click **Activate / Retry validation** on both
+`chr-z.dev` and `www.chr-z.dev` (Cloudflare fixes the records itself).
 
-With those present, every push to `main` deploys automatically via
-`.github/workflows/deploy.yml`.
+**Or manually in DNS → Records:**
 
-### Option B — Connect to Git (dashboard)
+1. Delete the `A` record `chr-z.dev → 84.32.84.32`.
+2. Create `CNAME chr-z.dev → chrz-dev.pages.dev` (Proxied).
+3. Edit `CNAME www.chr-z.dev → chrz-dev.pages.dev` (Proxied).
 
-1. dash.cloudflare.com → Workers & Pages → Create → **Connect to Git**
-2. Select this repo, framework preset **None**, output dir `/` (root),
-   production branch `main`.
-
-Either way, first-time setup also needs the custom domain:
-
-1. Pages project → **Custom domains** → add `chr-z.dev`
-2. Cloudflare creates the DNS records automatically (zone already hosted here).
+Email Routing (MX route{1,2,3}.mx.cloudflare.net) is untouched by all of
+the above. Validation is HTTP-based and completes within minutes after the
+records change; https://chr-z.dev then serves this site.
 
 ### Manual deploy from a machine with wrangler
 
