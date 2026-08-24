@@ -150,3 +150,12 @@ jobs:
 
       - name: JS syntax check
         run: node --check js/main.js
+
+      - name: Pay Module — syntax + tests (34 testes, zero deps)
+        run: |
+          node --check "functions/api/[[route]].js"
+          node --check src/core.js
+          node --test tests/pay-api.test.js tests/pay-client.test.js
+          # segredo de licença/webhook nunca pode existir hardcoded
+          ! grep -rn "LICENSE_SECRET.*=.*['\"][A-Za-z0-9]\{16,\}" functions/ src/ || exit 1
+          echo "OK: pay module green"

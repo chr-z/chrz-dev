@@ -2,6 +2,9 @@
 
 Personal site & portfolio of **Christian Eliel** — software engineer.
 100% static (HTML/CSS/vanilla JS), zero runtime dependencies, zero trackers.
+Hospeda também a **API central de pagamentos** da fábrica (`/api/*` via
+Cloudflare Pages Functions — ver `functions/api/[[route]].js` e README do
+pay-module em saas_factory).
 
 ## Pages
 
