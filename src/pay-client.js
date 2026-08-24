@@ -408,6 +408,7 @@
       }
       // sem verifyKey: HTTPS da nossa API é autoritativo (mesma regra do polling)
       acceptLicense(fresh, function () {});
+      setEntitlement({ paymentId: out.paymentId || null, email: fresh.email });
       return 'accepted';
     }).catch(function () {
       return 'error';

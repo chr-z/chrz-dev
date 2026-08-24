@@ -525,6 +525,8 @@ export async function getLicenseLatest(request, env) {
   return json({
     found: true,
     license: { email: record.email, product: record.product, plan: record.plan, exp: record.exp, sig: record.sig },
+    // fora do payload assinado; serve só pro client montar o entitlement
+    paymentId: record.paymentId,
   });
 }
 
