@@ -128,7 +128,9 @@ jobs:
                       "hotjar.com", "facebook.net", "clarity.ms")
           errs = []
           for f in pathlib.Path(".").rglob("*"):
-              if any(part in skip for part in f.parts) or not f.is_file():
+              # skip VCS/workflow internals: workflows legitimately contain
+              # tracker denylists and secret *names* (never values)
+              if any(part in skip for part in f.parts) or ".github" in f.parts or not f.is_file():
                   continue
               try:
                   text = f.read_text(encoding="utf-8")
