@@ -31,26 +31,12 @@ Cloudflare Pages via `.github/workflows/deploy.yml` → live at
 `CLOUDFLARE_ACCOUNT_ID` and repo variable `CLOUDFLARE_ENABLED=true` are
 already configured).
 
-### Remaining manual step: point chr-z.dev at the project
+## Custom domains: ACTIVE
 
-Custom domains `chr-z.dev` and `www.chr-z.dev` are attached to the Pages
-project but stuck in `pending`: the apex DNS record still points to a
-Hostinger parking IP (`84.32.84.32`). The automation token has Pages Edit
-but not DNS Edit, so this one-time fix needs the dashboard:
-
-**Easiest:** dash.cloudflare.com → Workers & Pages → `chrz-dev` →
-Custom domains → click **Activate / Retry validation** on both
-`chr-z.dev` and `www.chr-z.dev` (Cloudflare fixes the records itself).
-
-**Or manually in DNS → Records:**
-
-1. Delete the `A` record `chr-z.dev → 84.32.84.32`.
-2. Create `CNAME chr-z.dev → chrz-dev.pages.dev` (Proxied).
-3. Edit `CNAME www.chr-z.dev → chrz-dev.pages.dev` (Proxied).
-
-Email Routing (MX route{1,2,3}.mx.cloudflare.net) is untouched by all of
-the above. Validation is HTTP-based and completes within minutes after the
-records change; https://chr-z.dev then serves this site.
+`chr-z.dev` and `www.chr-z.dev` are attached to the Pages project with
+status **active** — https://chr-z.dev serves this site (verified 2026-08-24:
+all routes HTTP 200, security headers present, CI+Deploy green).
+Email Routing (MX route{1,2,3}.mx.cloudflare.net) is untouched.
 
 ### Manual deploy from a machine with wrangler
 
