@@ -440,3 +440,10 @@ a { color: inherit; }
   }
   .js-enabled .reveal { opacity: 1; transform: none; }
 }
+
+/* pricing & product cards */
+.pricing{margin-top:10px;font-size:.8rem;color:var(--mut);line-height:1.5}
+.pricing strong{color:var(--tx)}
+.chip-live{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:700;letter-spacing:.5px;background:#052e1b;color:#34d399;border:1px solid #34d39944;vertical-align:middle}
+.src-link{display:inline-block;margin-top:6px;font-size:.75rem;color:var(--mut);text-decoration:none;border-bottom:1px dotted var(--mut)}
+.src-link:hover{color:var(--acc);border-color:var(--acc)}
