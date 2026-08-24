@@ -49,6 +49,16 @@ export CLOUDFLARE_ACCOUNT_ID=<account id>
 npx wrangler pages deploy . --project-name=chrz-dev --branch=main
 ```
 
+## E2E Pay API (pós-deploy automático)
+
+Workflow `.github/workflows/e2e.yml`: após cada deploy de `main` (além de
+dispatch manual e execução semanal), roda `tools/e2e-license-probe.mjs` contra
+a produção validando a cadeia completa de licenças — webhook autenticado em
+constant-time, anti-replay no KV real, licença HMAC-SHA256 verificada com
+node:crypto independente, par (payment,email) com resposta uniforme. Segredos
+vêm dos repo secrets `WEBHOOK_SECRET` / `LICENSE_SECRET` (valores nunca
+impressos; o probe só loga presença+comprimento).
+
 ## Security posture
 
 - CSP `default-src 'self'`, no inline scripts, no third-party origins (`_headers`)
