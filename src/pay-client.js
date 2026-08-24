@@ -1,5 +1,5 @@
 /**
- * pay.js v3 — client do Pay Module (vanilla, zero dependências).
+ * pay.js v4 — client do Pay Module (vanilla, zero dependências).
  *
  * Fluxo: botão Pro -> email -> POST /api/create-payment -> redirect checkout
  * Asaas -> volta pro app -> polling /api/license (até 60s) -> licença salva
@@ -9,6 +9,14 @@
  * cada cobrança paga re-emite a licença com validade acumulada. O boot busca
  * /api/license-latest por email+produto e recupera renovações feitas em
  * outro dispositivo; PayModule.renew() força a checagem sob demanda.
+ *
+ * v4 (painel de status): a UI pode mostrar o estado real da licença sem
+ * conhecer os detalhes — [data-pay-exp] recebe a validade legível
+ * (ex.: "válida até 05/10/2026"), [data-pay-days] os dias restantes e
+ * [data-pay-plan] o plano; <html> ganha is-pro-expiring quando faltam <= 7
+ * dias. PayModule.state() passa a expor { licensed, exp, daysLeft, plan,
+ * status } (status: 'none'|'active'|'expiring'|'expired'). Tudo aditivo:
+ * integração v3 continua funcionando sem mudança nenhuma.
  *
  * Uso:
  *   <script src="js/pay.js"></script>
@@ -136,6 +144,81 @@
 
   function todayISO() { return new Date().toISOString().slice(0, 10); }
 
+  // ------------------------------------------------------------------
+  // v4: cálculo de status da licença (puro, testável) + painel de UI
+  // ------------------------------------------------------------------
+  /**
+   * Estado derivado do par (licença, data ISO de hoje).
+   *  - sem licença ................ { licensed:false, status:'none' }
+   *  - exp no passado ............ { licensed:false, status:'expired' }
+   *    (espelha structurallyValid: exp é INCLUSIVE — hoje == exp AINDA é
+   *    válido/desbloqueado; expired só a partir do dia seguinte)
+   *  - faltam <= EXPIRY_WARN_DAYS . status:'expiring'
+   *  - resto ..................... { licensed:true, status:'active' }
+   * daysLeft = dias CHEIOS restantes (hoje < exp): exp amanhã -> 1;
+   * nunca negativo quando expired.
+   */
+  var EXPIRY_WARN_DAYS = 7;
+
+  function licenseStatus(lic, todayIso) {
+    if (!lic || !lic.email) {
+      return { licensed: false, exp: null, daysLeft: null, plan: null, status: 'none' };
+    }
+    var exp = typeof lic.exp === 'string' ? lic.exp : null;
+    var daysLeft = null;
+    if (exp && /^\d{4}-\d{2}-\d{2}$/.test(exp)) {
+      daysLeft = Math.max(0, Math.floor((Date.parse(exp + 'T00:00:00Z') -
+        Date.parse(todayIso + 'T00:00:00Z')) / 86400000));
+    }
+    var expired = !(lic.sig && (!exp || todayIso <= exp)); // espelha structurallyValid
+    if (expired) {
+      return { licensed: false, exp: exp, daysLeft: daysLeft, plan: lic.plan || null, status: 'expired' };
+    }
+    var expiring = exp && daysLeft !== null ? daysLeft <= EXPIRY_WARN_DAYS : false;
+    return {
+      licensed: true,
+      exp: exp,
+      daysLeft: daysLeft,
+      plan: lic.plan || null,
+      status: expiring ? 'expiring' : 'active',
+    };
+  }
+
+  /** "2036-01-05" -> "05/01/2036" (pt-BR; fallback devolve o ISO cru). */
+  function formatExp(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : String(iso || '');
+  }
+
+  /**
+   * Painel de status (v4): preenche [data-pay-exp] / [data-pay-days] /
+   * [data-pay-plan] e a classe is-pro-expiring em <html>. Chamado de
+   * applyState() — apps antigos SEM esses atributos simplesmente não têm
+   * o que atualizar (zero custo, zero quebra).
+   */
+  function renderStatusPanel(st) {
+    var nodes = document.querySelectorAll('[data-pay-exp], [data-pay-days], [data-pay-plan]');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (st.licensed) {
+        if (el.hasAttribute('data-pay-exp')) el.textContent = st.exp ? 'válida até ' + formatExp(st.exp) : '';
+        else if (el.hasAttribute('data-pay-days')) {
+          el.textContent = st.daysLeft !== null
+            ? (st.daysLeft === 1 ? 'resta 1 dia' : 'restam ' + st.daysLeft + ' dias')
+            : '';
+        } else el.textContent = st.plan || '';
+        el.removeAttribute('hidden');
+      } else {
+        el.textContent = '';
+        el.setAttribute('hidden', '');
+      }
+    }
+    try {
+      document.documentElement.classList.toggle('is-pro-expiring', st.status === 'expiring');
+    } catch (e) {}
+  }
+
+
   function structurallyValid(lic) {
     return !!(lic && typeof lic === 'object' && lic.sig &&
       lic.product === CFG.product && lic.email &&
@@ -174,6 +257,8 @@
       marks[j].style.display = unlocked ? 'none' : '';
     }
     document.documentElement.classList.toggle('is-pro', !!unlocked);
+    // v4: painel de status sempre reflete o estado derivado da licença
+    renderStatusPanel(unlocked ? licenseStatus(lic, todayISO()) : licenseStatus(null, todayISO()));
     try {
       document.dispatchEvent(new CustomEvent('pay:state', {
         detail: { unlocked: !!unlocked, license: unlocked ? lic : null },
@@ -446,6 +531,10 @@
   }
 
   function init() {
+    // v4: painel reflete o estado JÁ PERSISTIDO antes de qualquer fluxo
+    // async (sem licença = painel escondido; com licença em cache = mostra
+    // na hora, mesmo que a revalidação online demore ou diga notfound)
+    renderStatusPanel(licenseStatus(getLicense(), todayISO()));
     bindButtons();
     var pending = getPending();
     if (pending && !getLicense()) {
@@ -473,7 +562,11 @@
     renew: function (email) { return renewFromLatest(email); },
     state: function () {
       var lic = getLicense();
-      return { product: CFG.product, licensed: !!lic, exp: lic ? lic.exp : null };
+      // v4: estado derivado completo (painel e apps consomem daqui)
+      return Object.assign(
+        { product: CFG.product },
+        licenseStatus(lic, todayISO())
+      );
     },
     signOut: function () { clearLicense(); clearPending(); applyState(false, null); },
   };
