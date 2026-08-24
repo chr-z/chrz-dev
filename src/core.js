@@ -24,6 +24,16 @@ const LICENSE_KV_TTL_S = 2 * 365 * 86400;
 /** Eventos Asaas que confirmam dinheiro na conta. */
 const PAID_EVENTS = ['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED_IN_CASH'];
 
+/**
+ * Eventos Asaas que REVERSAM dinheiro recebido (doc: docs.asaas.com/docs/webhooks-events).
+ * - PAYMENT_REFUNDED: estorno concluído (dinheiro saiu de volta pro pagador).
+ * - PAYMENT_RECEIVED_IN_CASH_UNDONE: desfaz o "recebido em dinheiro" (equivalente).
+ * PAYMENT_REFUND_IN_PROGRESS NÃO entra (liquidação agendada, ainda não efetivada);
+ * PAYMENT_PARTIALLY_REFUNDED NÃO entra (estorno parcial não cancela a licença);
+ * PAYMENT_REFUND_DENIED NÃO entra (estorno negado, dinheiro permanece).
+ */
+const REFUND_EVENTS = ['PAYMENT_REFUNDED', 'PAYMENT_RECEIVED_IN_CASH_UNDONE'];
+
 /** Planos válidos por produto (espelha PAY_MODULE_SPEC.md). */
 const PRODUCTS = {
   propostly:   { name: 'Propostly',   plans: { pro: { amount: 29, cycle: 'ONE_TIME',  days: 3650 } } },
@@ -380,6 +390,76 @@ async function indexLicense(kv, email, pointer) {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Reembolso / revogação de licença                                    *
+ * ------------------------------------------------------------------ */
+
+/**
+ * Revoga a licença emitida por um pagamento estornado (PAYMENT_REFUNDED).
+ *
+ * Estratégia: reescrever o MESMO registro lic:<paymentId> com exp retroativo
+ * (= issuedAt, a data em que a licença nasceu) e uma nova assinatura HMAC.
+ * A assinatura continua VÁLIDA — o client verifica HMAC e depois compara
+ * exp >= hoje. Com exp no passado, verifyLicenseString responde
+ * { valid: false, reason: 'expired' } e o app cai pro modo free.
+ *
+ * Por quê assim:
+ * - /api/license e /api/license-latest continuam devolvendo found:true com
+ *   licença assinada (mesmo contrato; nenhum client quebra);
+ * - dedupe por cobrança permanece correto (1 processamento por evento);
+ * - revogação é IDEMPOTENTE: refund repetido reescreve o mesmo exp retroativo.
+ *
+ * Retorna { record, revoked: true, wasAlreadyRevoked } | null se não há
+ * licença pra esse pagamento (ex.: webhook REFUND chegou antes do PAID,
+ * corrida rara — nesse caso o PAID posterior emite normalmente).
+ */
+async function revokeLicenseByPayment(paymentId, secret, kv, now = new Date()) {
+  let raw = null;
+  try {
+    raw = await kv.get(`lic:${paymentId}`);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+
+  let record;
+  try {
+    record = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return null;
+  }
+  if (!record || !record.email || !record.product || !record.plan) return null;
+
+  const revokedAt = typeof record.revokedAt === 'string' ? record.revokedAt : null;
+  // Data-alvo do exp retroativo: issuedAt da emissão original (não muda em re-refund).
+  let targetExp = null;
+  if (typeof record.issuedAt === 'string') {
+    const d = new Date(record.issuedAt);
+    if (!Number.isNaN(d.getTime())) {
+      targetExp = d.toISOString().slice(0, 10);
+    }
+  }
+  // Fallback defensivo: sem issuedAt utilizável, usa hoje mesmo.
+  if (!targetExp) targetExp = now.toISOString().slice(0, 10);
+
+  const already = Boolean(revokedAt);
+  const license = { email: record.email, product: record.product, plan: record.plan, exp: targetExp };
+  const signed = await signLicense(license, secret);
+
+  const updated = {
+    ...record,
+    ...license,
+    sig: signed.sig,
+    revokedAt: revokedAt || now.toISOString(),
+  };
+  try {
+    await kv.put(`lic:${paymentId}`, JSON.stringify(updated), LICENSE_KV_TTL_S);
+  } catch {
+    return null;
+  }
+  return { record: updated, revoked: true, wasAlreadyRevoked: already };
+}
+
 export {
   RATE_WINDOW_MS,
   RATE_MAX,
@@ -387,6 +467,7 @@ export {
   DEDUPE_KV_TTL_S,
   LICENSE_KV_TTL_S,
   PAID_EVENTS,
+  REFUND_EVENTS,
   PRODUCTS,
   normalizeEmail,
   safeEqual,
@@ -407,5 +488,6 @@ export {
   checkKey,
   readLicenseIndex,
   indexLicense,
+  revokeLicenseByPayment,
   rateKeyFor,
 };

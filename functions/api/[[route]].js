@@ -8,6 +8,10 @@
  *   GET  /api/license-latest   ?key=<email>&product=<slug>      -> { found, license } (renovações)
  *   GET  /api/health                                            -> { ok: true }
  *
+ * Webhook também processa PAYMENT_REFUNDED / PAYMENT_RECEIVED_IN_CASH_UNDONE:
+ * licença da cobrança estornada é revogada (exp retroativo re-assinado —
+ * client revalida online no boot e cai pro free; ver core.revokeLicenseByPayment).
+ *
  * Bindings esperados no projeto Pages (dashboard -> Settings -> Variables):
  *   PAY_KV              KV namespace (rate limit + dedupe + licenças)
  *   ASAAS_API_TOKEN     chave de API Asaas (sandbox ou produção) — NUNCA no repo
@@ -27,6 +31,7 @@
 
 import {
   PAID_EVENTS,
+  REFUND_EVENTS,
   PRODUCTS,
   normalizeEmail,
   safeEqual,
@@ -37,6 +42,7 @@ import {
   checkKey,
   readLicenseIndex,
   indexLicense,
+  revokeLicenseByPayment,
   signLicense,
 } from '../../src/core.js';
 
@@ -346,6 +352,27 @@ export async function webhookAsaas(request, env) {
   }
   if (!paymentId) {
     return json({ error: 'missing_payment_id' }, 400);
+  }
+
+  // 2b) REEMBOLSO EFETIVADO: dinheiro voltou pro pagador -> licença daquela
+  //     cobrança é revogada (exp retroativo re-assinado). Roda ANTES do
+  //     filtro de eventos pagos e com dedupe próprio: um refund não pode
+  //     consumir o slot de dedupe do PAID (ordem dos webhooks não é garantida),
+  //     nem permitir que replay do REFUND re-processe algo.
+  if (REFUND_EVENTS.includes(event)) {
+    const firstWin = await dedupeFirstWin(`refund:${paymentId}`, rawKv(env));
+    if (!firstWin) {
+      return json({ received: true, duplicate: true });
+    }
+    const outcome = await revokeLicenseByPayment(paymentId, env.LICENSE_SECRET || env.WEBHOOK_SECRET, rawKv(env));
+    if (!outcome) {
+      // Sem licença pra essa cobrança: pagamento pago por fora do nosso fluxo,
+      // webhook fora de ordem ou registro já expirado do KV. Nada a revogar.
+      console.log(`[webhook] ${event} pagamento=${paymentId} sem licença local — nada a revogar`);
+      return json({ received: true, revoked: false, reason: 'no_local_license' });
+    }
+    console.log(`[webhook] ${event} pagamento=${paymentId} produto=${outcome.record.product} licença revogada (exp=${outcome.record.exp})`);
+    return json({ received: true, revoked: true });
   }
 
   // 2) Só eventos pagos geram licença.

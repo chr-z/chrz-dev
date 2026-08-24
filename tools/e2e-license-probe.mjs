@@ -11,6 +11,12 @@
  *   6. Verificação INDEPENDENTE da assinatura: HMAC-SHA256 recalculado
  *      com node:crypto clássico (fora do código do projeto) contra LICENSE_SECRET.
  *   7. Sig adulterada -> inválida localmente.
+ *   8-10. license-latest (renovação por email): mesma licença / produto
+ *      divergente / email desconhecido -> found:false uniforme.
+ *   11-15. CICLO DE REEMBOLSO: PAYMENT_REFUNDED sobre a licença emitida
+ *      acima -> {revoked:true}; replay -> duplicate; leitura volta found:true
+ *      com exp RETROATIVO re-assinado (HMAC independente confere); refund
+ *      de cobrança desconhecida -> revoked:false (nada a fazer).
  *
  * Segurança: lê WEBHOOK_SECRET/LICENSE_SECRET de env vars (ou .env apontado
  * por PAY_ENV_FILE). NUNCA imprime valores — só nomes/comprimentos.
@@ -97,6 +103,7 @@ async function main() {
   check('webhook token errado -> 401', bad.status === 401, `status=${bad.status}`);
 
   // 1) evento pago válido -> received:true
+  const paidSentAt = new Date().toISOString(); // ~issuedAt da licença (alvo do exp pós-refund)
   const ok1 = await fetch(`${BASE}/api/webhook/asaas`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'asaas-access-token': WEBHOOK_SECRET },
@@ -173,6 +180,79 @@ async function main() {
 
   const latestNone = await fetch(`${BASE}/api/license-latest?key=nobody-${randomUUID().slice(0, 6)}%40example.com&product=propostly`);
   check('license-latest email desconhecido -> {found:false} uniforme', (await latestNone.json().catch(() => null))?.found === false);
+
+  // ------------------------------------------------------------------
+  // Ciclo de REEMBOLSO (P6) contra produção
+  // ------------------------------------------------------------------
+
+  // 11) refund da cobrança emitida acima -> revogada (exp retroativo)
+  const refundBody = JSON.stringify({
+    event: 'PAYMENT_REFUNDED',
+    dateCreated: new Date().toISOString(),
+    payment: { id: PAYMENT_ID, status: 'REFUNDED' },
+  });
+  const refOk = await withRetries(async () => {
+    const r = await fetch(`${BASE}/api/webhook/asaas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'asaas-access-token': WEBHOOK_SECRET },
+      body: refundBody,
+    });
+    const jr = await r.json().catch(() => null);
+    return { ok: !!(jr && jr.revoked === true), status: r.status, body: JSON.stringify(jr) };
+  });
+  check('PAYMENT_REFUNDED -> {received:true, revoked:true}', refOk.ok, `status=${refOk.status} body=${refOk.body}`);
+
+  // 12) replay do refund -> duplicate:true
+  const refRep = await withRetries(async () => {
+    const r = await fetch(`${BASE}/api/webhook/asaas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'asaas-access-token': WEBHOOK_SECRET },
+      body: refundBody,
+    });
+    const jr = await r.json().catch(() => null);
+    return { ok: !!(jr && jr.duplicate === true), body: JSON.stringify(jr) };
+  });
+  check('replay do refund -> {duplicate:true}', refRep.ok, `body=${refRep.body}`);
+
+  // 13) leitura pós-refund: found:true com exp retroativo (= dia da emissão)
+  //     e assinatura VÁLIDA pro payload novo — contrato de leitura intacto.
+  const expectedRevokedExp = paidSentAt.slice(0, 10);
+  const afterRefund = await withRetries(async () => {
+    const r = await fetch(`${BASE}/api/license?payment=${encodeURIComponent(PAYMENT_ID)}&email=${encodeURIComponent(EMAIL)}`);
+    const jr = await r.json().catch(() => null);
+    return {
+      ok: !!(jr && jr.found === true && jr.license && jr.license.exp === expectedRevokedExp),
+      json: jr,
+      body: JSON.stringify(jr),
+    };
+  }, 3, 2000);
+  const licAfter = afterRefund.json && afterRefund.json.found ? afterRefund.json.license : null;
+  check(
+    'pós-refund: found:true com exp retroativo re-assinado',
+    afterRefund.ok,
+    `exp=${licAfter ? licAfter.exp : '?'} esperado=${expectedRevokedExp}`,
+  );
+  if (!licAfter) {
+    finish();
+    return;
+  }
+
+  // 14) HMAC independente confere para o payload revogado
+  const revokedPayload = JSON.stringify({ email: licAfter.email, product: licAfter.product, plan: licAfter.plan, exp: licAfter.exp });
+  const revokedExpected = createHmac('sha256', LICENSE_SECRET).update(revokedPayload, 'utf8').digest('hex');
+  check('HMAC independente confere com a licença revogada', revokedExpected === licAfter.sig);
+  check('exp revogado é passado (client cai pro free)', licAfter.exp <= new Date().toISOString().slice(0, 10), `exp=${licAfter.exp}`);
+
+  // 15) refund de cobrança sem licença local -> revoked:false
+  const ghostId = `pay_e2eghost_${randomUUID().slice(0, 8)}`;
+  const ghost = await fetch(`${BASE}/api/webhook/asaas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'asaas-access-token': WEBHOOK_SECRET },
+    body: JSON.stringify({ event: 'PAYMENT_REFUNDED', payment: { id: ghostId } }),
+  });
+  const gj = await ghost.json().catch(() => null);
+  check('refund de cobrança desconhecida -> {revoked:false, reason:no_local_license}',
+    !!(gj && gj.revoked === false && gj.reason === 'no_local_license'), `body=${JSON.stringify(gj)}`);
 
   finish();
 }
