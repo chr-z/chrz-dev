@@ -2,3 +2,6 @@ User-agent: *
 Allow: /
 
 Sitemap: https://chr-z.dev/sitemap.xml
+
+# Machine-readable summary of this site:
+# https://chr-z.dev/llms.txt
