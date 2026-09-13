@@ -1,0 +1,70 @@
+# Christian Eliel — Mobile & Full Stack Developer
+
+> Personal site and portfolio of Christian Eliel (chr-z), a mobile and full stack developer
+> based in Brasília, Brazil, working remotely. Takes products end to end: architecture,
+> implementation, integration, deploy, store release, monitoring and maintenance.
+
+## Summary
+
+Mobile and full stack developer with a postgraduate degree in Data Science. Ships software
+that runs in production: a magazine app live on the App Store and Google Play, an
+audio-visual quality-control engine deployed in an EdTech pipeline, and automation and
+integration work on WordPress, Google Cloud and Cloudflare.
+
+## Facts
+
+- Role: Mobile & Full Stack Developer (React Native, TypeScript, Python, PHP)
+- Also works with: automation, API integrations, data pipelines, media tooling
+- Location: Brasília, Brazil — remote-first, available for full-time (CLT) and contract
+- Education: technologist degree in Systems Analysis and Development; postgraduate degree in Data Science
+- Languages: Portuguese (native), English (C2)
+- Contact: christian@chr-z.dev
+- LinkedIn: https://www.linkedin.com/in/christianmaciel/
+- GitHub: https://github.com/chr-z
+- This site: https://chr-z.dev (content available in English and Portuguese)
+
+## In production
+
+- **ZIMNY — magazine app, iOS + Android.** React Native / Expo SDK 57, React 19, TypeScript.
+  Content reader with infinite scroll, clock-synced linear stream, offline reading,
+  push notifications (FCM v1 + APNs) and trilingual PT/EN/ES with server-side translation.
+  Custom WordPress REST backend and automated release pipeline.
+  - App Store: https://apps.apple.com/us/app/zimny/id6804807761
+  - Google Play: https://play.google.com/store/apps/details?id=com.zimny.app
+  - Public code sample: https://github.com/chr-z/zimny-mobile
+
+- **Solaris — audio-visual analysis engine.** Deployed in an EdTech pipeline handling
+  thousands of hours of content per month. Real-time RGB Parade / Waveform / Vectorscope
+  in the browser (Canvas, no WebGL), Node.js byte-range streaming proxy over Google Drive
+  and YouTube, Firebase optimistic locking for multi-analyst queues, 129 automated tests in CI.
+  - Live: https://solaris-av-engine.vercel.app
+  - Case study: https://chr-z.dev/solaris.html
+  - Code: https://github.com/chr-z/solaris-av-engine
+
+- **Noite dos Autores — contest platform for a magazine.** Landing page, lead capture on
+  Cloudflare Functions + KV, dedupe and scoring, transactional email, deploy pipeline.
+  - Code: https://github.com/chr-z/noite-dos-autores
+
+- **Zimny Admin — WordPress plugin suite** that drives the magazine app: custom post types,
+  REST endpoints, push notifications, advertising, PT/EN/ES translation.
+  - Code: https://github.com/chr-z/zimny-admin-plugin
+
+- **Rubethyst Snap — media ingest as a service.** yt-dlp + ffmpeg engine, FastAPI API,
+  Celery workers, live progress over SSE, signed delivery URLs, quotas and abuse controls.
+  - Code: https://github.com/chr-z/rubethyst-snap
+
+- **ForgeKit Bots — serverless Telegram bots** on Cloudflare Workers with a shared
+  TypeScript core.
+  - Code: https://github.com/chr-z/forgekit-bots
+
+## Stack
+
+TypeScript · React · React Native · Expo · Node.js · Python · PHP / WordPress · SQL ·
+Firebase · Google Cloud · Cloudflare Workers · Docker · Linux · CI/CD · i18n · AppSec / CSP
+
+## How to verify these claims
+
+Every item above links to a public, checkable artifact: store listings, live deployments and
+repositories. The client repositories shown publicly are sanitized copies (client data and
+credentials removed); the production applications themselves are private by contract.
+Repository licenses: client code is published for portfolio review only, without reuse rights.
