@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Christian Eliel — Software Engineer</title>
-  <meta name="description" content="Christian Eliel (chr-z) — software engineer shipping production-grade web products: 14 live apps, PWA/offline-first, i18n EN/PT-BR, tested and CI/CD-deployed. Zero-budget, security-hardened infrastructure.">
+  <title>Christian Eliel — Mobile &amp; Full Stack Developer</title>
+  <meta name="description" content="Christian Eliel (chr-z) — mobile and full stack developer. A magazine app live on the App Store and Google Play, an audio-visual QC engine running in production, and automation over WordPress, Google Cloud and Cloudflare.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://chr-z.dev/">
-  <meta property="og:title" content="Christian Eliel — Software Engineer">
-  <meta property="og:description" content="14 production apps shipped solo. PWA, offline-first, i18n, CI/CD, hardened headers. Meet the engineer who ships.">
+  <meta property="og:title" content="Christian Eliel — Mobile &amp; Full Stack Developer">
+  <meta property="og:description" content="iOS + Android app live in both stores, a QC engine in production, integrations and automation. Product from zero to production.">
   <meta property="og:site_name" content="chr-z.dev">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Christian Eliel — Software Engineer">
-  <meta name="twitter:description" content="14 production apps shipped solo. PWA, offline-first, i18n, CI/CD.">
+  <meta name="twitter:title" content="Christian Eliel — Mobile &amp; Full Stack Developer">
+  <meta name="twitter:description" content="iOS + Android app live in both stores, a QC engine in production, integrations and automation.">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0b0b12">
   <link rel="canonical" href="https://chr-z.dev/">
@@ -25,10 +25,15 @@
     "name": "Christian Eliel",
     "url": "https://chr-z.dev/",
     "email": "mailto:christian@chr-z.dev",
-    "jobTitle": "Software Engineer",
-    "description": "Fullstack engineer & data science practitioner. Builds and ships production-grade client-side SaaS products.",
-    "sameAs": ["https://github.com/chr-z"],
-    "knowsAbout": ["JavaScript", "TypeScript", "Python", "Progressive Web Apps", "CI/CD", "Application Security", "Data Science"]
+    "jobTitle": "Mobile & Full Stack Developer",
+    "description": "Mobile and full stack developer with a postgraduate degree in Data Science, shipping products end to end.",
+    "sameAs": [
+      "https://github.com/chr-z",
+      "https://www.linkedin.com/in/christianmaciel/",
+      "https://apps.apple.com/us/app/zimny/id6804807761",
+      "https://play.google.com/store/apps/details?id=com.zimny.app"
+    ],
+    "knowsAbout": ["React Native", "Expo", "TypeScript", "React", "Node.js", "Python", "PHP", "WordPress", "SQL", "Firebase", "Google Cloud", "Docker", "iOS", "Android", "CI/CD", "Data Science"]
   }
   </script>
 </head>
@@ -56,25 +61,50 @@
   <main id="main">
     <!-- HERO -->
     <section class="hero container">
-      <p class="badge reveal" data-i18n="hero.badge">Available for freelance &amp; full-time</p>
+      <p class="badge reveal" data-i18n="hero.badge">Available for full-time &amp; contract — remote</p>
       <h1 class="hero-title reveal">
         <span data-i18n="hero.h1a">I build software that</span>
         <span class="grad-text" data-i18n="hero.h1b">ships.</span>
       </h1>
       <p class="hero-sub reveal" data-i18n="hero.sub">
-        Software engineer (fullstack &amp; data science). I designed, built and deployed
-        14 production web apps solo — offline-capable, bilingual, tested, deployed by CI,
-        on hardened zero-cost infrastructure.
+        Mobile and full stack developer. Product from zero to production: a magazine app
+        live on the App Store and Google Play, an audio-visual QC engine running in
+        production, and automation and integrations over WordPress, Google Cloud and
+        Cloudflare.
       </p>
       <div class="hero-actions reveal">
         <a class="btn btn-primary" href="portfolio.html" data-i18n="hero.cta.work">See the work</a>
         <a class="btn btn-ghost" href="contact.html" data-i18n="hero.cta.contact">Get in touch</a>
       </div>
-      <dl class="stats reveal">
-        <div class="stat"><dt class="stat-num grad-text">14</dt><dd data-i18n="stats.apps.label">apps in production</dd></div>
-        <div class="stat"><dt class="stat-num grad-text">0</dt><dd data-i18n="stats.deps.label">runtime dependencies</dd></div>
-        <div class="stat"><dt class="stat-num grad-text">2</dt><dd data-i18n="stats.langs.label">languages, out of the box</dd></div>
-      </dl>
+    </section>
+
+    <!-- APP IN PRODUCTION -->
+    <section class="section container reveal">
+      <div class="app-strip">
+        <div>
+          <p class="kicker" data-i18n="app.kicker">Live in both stores</p>
+          <h2 class="section-title" data-i18n="app.title">ZIMNY — mobile app, iOS + Android</h2>
+          <p data-i18n="app.sub">
+            A magazine app taken end to end: architecture, implementation, publishing and
+            maintenance in both stores.
+          </p>
+          <ul class="feature-list">
+            <li data-i18n="app.b1">React Native / Expo SDK 57 · React 19 · TypeScript</li>
+            <li data-i18n="app.b2">Push in production: FCM v1 (Android) and APNs (iOS), segmented by language</li>
+            <li data-i18n="app.b3">Trilingual PT/EN/ES, content reader with infinite scroll and offline reading</li>
+            <li data-i18n="app.b4">Custom WordPress REST backend and an automated release pipeline</li>
+          </ul>
+          <div class="store-badges">
+            <a class="store-btn" href="https://apps.apple.com/us/app/zimny/id6804807761" rel="noopener">
+              <span class="store-btn-top">Download on the</span><span class="store-btn-name">App Store</span>
+            </a>
+            <a class="store-btn" href="https://play.google.com/store/apps/details?id=com.zimny.app" rel="noopener">
+              <span class="store-btn-top">Get it on</span><span class="store-btn-name">Google Play</span>
+            </a>
+            <a class="src-link" href="https://github.com/chr-z/zimny-mobile" rel="noopener" data-i18n="app.code">Code sample →</a>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ABOUT -->
@@ -84,50 +114,53 @@
       <div class="about-grid">
         <div>
           <p data-i18n="about.p1">
-            I'm Christian Eliel — fullstack developer with a data science background. I treat
-            every project as a product: real users, real constraints, measurable results.
-            My stack is deliberately boring where it matters (vanilla, standards-first) and
-            modern where it pays (PWA, CI/CD, edge hosting).
+            I'm Christian Eliel — mobile and full stack developer, with a postgraduate degree
+            in Data Science. I treat every project as a product: real users, real constraints,
+            measurable results. I like owning the whole path — architecture, code,
+            integration, deploy, and the part nobody wants (store review, monitoring,
+            maintenance).
           </p>
           <p data-i18n="about.p2">
-            Everything on this site — including this site — runs on a free tier with strict
-            Content-Security-Policy, no trackers, no third-party scripts, and automated
-            validation on every push. Security and cost discipline aren't features; they're defaults.
+            Everything I put in production — including this site — runs on free-tier
+            infrastructure with a strict Content-Security-Policy, no trackers and automated
+            validation on every push. Cost and security discipline aren't features to me;
+            they're defaults.
           </p>
         </div>
         <div class="skills">
           <h3 class="skills-title" data-i18n="about.skills.title">Toolbox</h3>
           <ul class="chips" aria-label="Technologies">
-            <li>JavaScript</li><li>TypeScript</li><li>Python</li><li>SQL</li>
-            <li>React</li><li>Svelte 5</li><li>Rust / WASM</li><li>Elm</li><li>ClojureScript</li>
-            <li>PWA / Offline-first</li><li>i18n</li><li>CI/CD</li><li>AppSec / CSP</li><li>Data Science</li>
+            <li>React Native</li><li>Expo</li><li>TypeScript</li><li>React</li><li>Node.js</li>
+            <li>Python</li><li>PHP / WordPress</li><li>SQL</li><li>Firebase</li>
+            <li>Google Cloud</li><li>Cloudflare Workers</li><li>Docker</li><li>Linux</li>
+            <li>CI/CD</li><li>i18n</li><li>AppSec / CSP</li><li>Data Science</li>
           </ul>
         </div>
       </div>
     </section>
 
-    <!-- FEATURED APPS -->
+    <!-- OTHER PRODUCTION WORK -->
     <section class="section container reveal">
-      <p class="kicker" data-i18n="featured.kicker">Selected work</p>
+      <p class="kicker" data-i18n="work.kicker">Also in production</p>
       <div class="section-head">
-        <h2 class="section-title" data-i18n="featured.title">Products people can use today</h2>
-        <a class="link-arrow" href="portfolio.html" data-i18n="featured.viewall">View full portfolio →</a>
+        <h2 class="section-title" data-i18n="work.title">Systems that are running right now</h2>
+        <a class="link-arrow" href="portfolio.html" data-i18n="work.viewall">See everything →</a>
       </div>
       <div class="grid grid-3">
         <article class="card">
-          <h3><a href="https://chr-z.github.io/menupulse/" rel="noopener">MenuPulse</a></h3>
-          <p>QR digital menu that sells more.</p>
-          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+          <h3><a href="https://github.com/chr-z/noite-dos-autores" rel="noopener">Noite dos Autores</a></h3>
+          <p data-i18n="work.noite.p">Contest platform for a magazine: landing page, lead capture, dedupe and scoring, transactional email.</p>
+          <ul class="tags"><li>Cloudflare</li><li>KV</li><li>TypeScript</li></ul>
         </article>
         <article class="card">
-          <h3><a href="https://chr-z.github.io/resumeforge/" rel="noopener">ResumeForge</a></h3>
-          <p>ATS-friendly resume builder.</p>
-          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+          <h3><a href="https://github.com/chr-z/rubethyst-snap" rel="noopener">Rubethyst Snap</a></h3>
+          <p data-i18n="work.snap.p">Media ingest as a service: yt-dlp + ffmpeg engine, worker queue, live progress, signed delivery links.</p>
+          <ul class="tags"><li>Python</li><li>FastAPI</li><li>Celery</li><li>Docker</li></ul>
         </article>
         <article class="card">
-          <h3><a href="https://chr-z.github.io/propostaja/" rel="noopener">Propostly</a></h3>
-          <p>Proposals that close, with client links.</p>
-          <ul class="tags"><li>PWA</li><li>i18n</li></ul>
+          <h3><a href="https://github.com/chr-z/zimny-admin-plugin" rel="noopener">Zimny Admin</a></h3>
+          <p data-i18n="work.admin.p">WordPress plugin suite that drives the magazine app: custom types, REST endpoints, push, ads, PT/EN/ES translation.</p>
+          <ul class="tags"><li>PHP</li><li>WordPress</li><li>REST</li></ul>
         </article>
       </div>
     </section>
@@ -139,9 +172,9 @@
           <p class="kicker" data-i18n="home.solaris.kicker">Flagship case study</p>
           <h2 class="section-title" data-i18n="home.solaris.title">Solaris A/V Engine — ≈6.5× throughput</h2>
           <p data-i18n="home.solaris.text">
-            Automated audio-visual quality control for long-form content. The v2 rebuild cut
-            analysis time dramatically, added offline PWA support, exportable QC reports and
-            local-first Pro licensing — with an on-premise desktop option.
+            Automated audio-visual quality control for long-form content, deployed in an EdTech
+            pipeline that delivers thousands of hours a month. Real-time scopes in the browser,
+            byte-range streaming proxy, optimistic locking for multi-analyst queues, 129 tests.
           </p>
           <a class="btn btn-primary" href="solaris.html" data-i18n="home.solaris.cta">Read the case study</a>
         </div>
@@ -152,7 +185,7 @@
     <section class="section container reveal">
       <div class="cta-box">
         <h2 class="section-title" data-i18n="cta.title">Need someone who ships?</h2>
-        <p data-i18n="cta.sub">Freelance projects, contracts and full-time roles. Fast replies, working software, no drama.</p>
+        <p data-i18n="cta.sub">Contracts and full-time roles. Fast replies, working software, no drama.</p>
         <a class="btn btn-primary" href="contact.html" data-i18n="cta.button">Start a conversation</a>
       </div>
     </section>

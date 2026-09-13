@@ -137,7 +137,7 @@ a { color: inherit; }
 }
 
 /* ---------- Hero ---------- */
-.hero { padding-block: 4.5rem 2.5rem; max-width: 46rem; }
+.hero { padding-block: 4rem 1.25rem; max-width: 46rem; }
 
 .badge {
   display: inline-block;
@@ -207,6 +207,9 @@ a { color: inherit; }
 
 /* ---------- Sections ---------- */
 .section { padding-block: 2.75rem; }
+
+/* first block after the hero sits closer — the hero is short by design */
+.hero + .section { padding-block: 1.5rem 2.75rem; }
 
 .kicker {
   font-size: 0.78rem;
@@ -447,3 +450,33 @@ a { color: inherit; }
 .chip-live{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:700;letter-spacing:.5px;background:#052e1b;color:#34d399;border:1px solid #34d39944;vertical-align:middle}
 .src-link{display:inline-block;margin-top:6px;font-size:.75rem;color:var(--mut);text-decoration:none;border-bottom:1px dotted var(--mut)}
 .src-link:hover{color:var(--acc);border-color:var(--acc)}
+
+
+/* ============================================================
+   App in production (home)
+   ============================================================ */
+.app-strip {
+  background:
+    radial-gradient(60rem 20rem at 85% -20%, rgba(124, 58, 237, 0.30), transparent),
+    radial-gradient(50rem 18rem at 5% 130%, rgba(249, 115, 22, 0.22), transparent),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 2.25rem 1.75rem;
+}
+.app-strip p { max-width: 42rem; }
+.app-strip .feature-list { margin-top: 1.15rem; }
+.store-badges {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.75rem; margin-top: 1.6rem;
+}
+.store-btn {
+  display: inline-flex; flex-direction: column; line-height: 1.15;
+  padding: 0.55rem 1.05rem; text-decoration: none;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.store-btn:hover, .store-btn:focus-visible { border-color: var(--violet); transform: translateY(-1px); }
+.store-btn-top { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.store-btn-name { font-weight: 700; font-size: 1.02rem; }
+.store-badges .src-link { margin-left: 0.25rem; }
