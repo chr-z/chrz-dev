@@ -480,3 +480,20 @@ a { color: inherit; }
 .store-btn-top { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .store-btn-name { font-weight: 700; font-size: 1.02rem; }
 .store-badges .src-link { margin-left: 0.25rem; }
+
+
+/* ============================================================
+   Lab list (portfolio)
+   ============================================================ */
+.lab-list {
+  margin-top: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+.lab-list summary { cursor: pointer; font-weight: 600; }
+.lab-list summary:hover { color: var(--orange); }
+.lab-list .chips { margin-top: 1rem; }
+.lab-list .chips a { text-decoration: none; }
+.lab-list .chips a:hover { color: var(--orange); }
